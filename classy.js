@@ -67,6 +67,83 @@
   /* what version of classy are we using? */
   Class.$classyVersion = CLASSY_VERSION;
 
+  /* adds new methods to a class object */
+  Class.$append = function(properties){
+    Class.$include(this.constructor.prototype, this.$super_prototype, properties);
+  };
+  
+  /* helper metod to copy functions inside properties object to class prototype */
+  Class.$include = function(prototype, super_prototype, properties) {
+    /* copy all properties over to the new prototype */
+    for (var name in properties) {
+      var value = getOwnProperty(properties, name);
+      if (name === '__include__' ||
+          value === undefined)
+        continue;
+
+      prototype[name] = typeof value === 'function' && usesSuper(value) ?
+        (function(meth, name) {
+          return function() {
+            var old_super = getOwnProperty(this, '$super');
+            this.$super = super_prototype[name];
+            try {
+              return meth.apply(this, arguments);
+            }
+            finally {
+              setOrUnset(this, '$super', old_super);
+            }
+          };
+        })(value, name) : value
+    }
+  };
+  
+  /* Allows forward declarations of classes.
+  @param {string} fullClassName String with the class full name. Make sure to provide always the same string for on class.
+  @param {Class} baseClass The base class object that will be used to create the new class if required.
+  @param {object} properties An object with properties to be defined as expected by method $extend.
+  @return {Class} Returns a new Class object or the existing one if it was defined before.
+  */
+  Class.$define = (function(){  
+    var $registeredClasses = {};
+
+    function existsClass(classname) {
+      return $registeredClasses[classname] !== undefined;
+    }
+    function getClass(classname) {
+      return $registeredClasses[classname];
+    }
+    function registerClass(classname, classObj) {
+      $registeredClasses[classname] = classObj;
+    }
+
+    return function(fullClassName, baseClass, properties){  
+      if(baseClass !== undefined && typeof baseClass === "object" && properties === undefined)
+      {
+        properties = baseClass;
+        baseClass = undefined;
+      }
+      
+      if(properties === undefined || properties == null) properties = {};
+      
+      if(existsClass(fullClassName))
+      {
+        var classObj = getClass(fullClassName);
+        if(properties !== undefined && properties !== null)
+        {    
+        classObj.$append(properties);
+        }
+        return classObj;
+      }
+      if(baseClass === undefined)
+      {
+        baseClass = Class;
+      }
+      
+      registerClass(fullClassName, baseClass.$extend(properties));
+      return getClass(fullClassName);
+    };
+  })();
+    
   /* extend functionality */
   Class.$extend = function(properties) {
     var super_prototype = this.prototype;
@@ -97,26 +174,7 @@
         }
 
     /* copy all properties over to the new prototype */
-    for (var name in properties) {
-      var value = getOwnProperty(properties, name);
-      if (name === '__include__' ||
-          value === undefined)
-        continue;
-
-      prototype[name] = typeof value === 'function' && usesSuper(value) ?
-        (function(meth, name) {
-          return function() {
-            var old_super = getOwnProperty(this, '$super');
-            this.$super = super_prototype[name];
-            try {
-              return meth.apply(this, arguments);
-            }
-            finally {
-              setOrUnset(this, '$super', old_super);
-            }
-          };
-        })(value, name) : value
-    }
+    Class.$include(prototype, super_prototype, properties);
 
     /* dummy constructor */
     var rv = function() {
@@ -140,6 +198,8 @@
        return the class */
     rv.prototype = prototype;
     rv.constructor = rv;
+    rv.$append = Class.$append;
+    rv.$super_prototype = super_prototype;
     rv.$extend = Class.$extend;
     rv.$withData = Class.$withData;
     return rv;

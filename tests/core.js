@@ -8,10 +8,10 @@ test('$noConflict unsets Class from window', function() {
 
   var Classy = Class.$noConflict();
 
-  equals(typeof(Class), 'undefined',
+  equal(typeof(Class), 'undefined',
     '$noConflict unsets Class from window');
 
-  same(Classy, original,
+  deepEqual(Classy, original,
     'the returned Class is the same as the original');
 
   // cleanup
@@ -28,22 +28,22 @@ test('$super calls parent method', function() {
   var Englishman = Greeter.$extend({
     greeting: function() { return 'Hello, ' + this.$super(); }
   });
-  same((Spaniard().greeting()), 'Hola, Armin!',
+  deepEqual((Spaniard().greeting()), 'Hola, Armin!',
     'Spanish greeting generated.');
-  same((Englishman().greeting()), 'Hello, Armin!',
+  deepEqual((Englishman().greeting()), 'Hello, Armin!',
     'English greeting generated.');
 });
 
 test('$extend exists and works', function() {
-  same(typeof(Class.$extend), 'function',
+  deepEqual(typeof(Class.$extend), 'function',
     'basic class has $extend function');
 
   var SubClass = Class.$extend({});
 
-  same(typeof(SubClass.$extend), 'function',
+  deepEqual(typeof(SubClass.$extend), 'function',
     'subclasses also receive $extend');
 
-  same(SubClass.$extend, Class.$extend,
+  deepEqual(SubClass.$extend, Class.$extend,
     'base class and subclass have same $extend function');
 });
 
@@ -51,7 +51,7 @@ test('classes can be used with or without `new`.', function() {
   var pig1 = new Animal('pig');
   var pig2 = Animal('pig');
 
-  same(pig1, pig2,
+  deepEqual(pig1, pig2,
     'Animal instances are the same when made with or without `new`');
 });
 
@@ -219,4 +219,59 @@ test('class variable inheritance', function() {
   equal(SubTest.bar, 'subtest', 'SubTest.bar has been overridden');
   equal(SubSubTest.bar, SubTest.bar, 'SubSubTest.bar is Test.bar');
   equal(SubSubTest.foo, 999, 'SubSubTest.foo has been overridden');
+});
+
+test('$define used as forward declaration', function(){
+
+	Base = Class.$define("Base");
+
+	Derived = Class.$define("Derived", Base, {
+		__init__: function(){
+			this.$super();
+			this._derivedNumber = 3;
+		},
+		baseNumber: function(){
+			return Base.prototype.number.call(this);
+		},
+		derivedNumber: function(){
+			return this._derivedNumber;
+		},
+	});
+
+
+	Base = Class.$define("Base", {
+		__init__: function(){
+			this._number = 5;
+		},
+		number: function(){
+			return this._number;
+		},
+		setNumber: function(value){
+			this._number = value;
+		}
+	});
+	
+	ok(Derived, 'Derived class declared before Base class.');
+	ok(new Derived() !== undefined, 'Derived object was created');
+	equal(new Derived().number(), 5, 'Method from base called.');
+
+});
+
+test('$append method used to extend a class.', function(){
+
+	Test = Class.$extend({
+		__init__: function(){
+			this._number = 10;
+		}
+	});
+
+	Test.$append({
+		number: function(){
+			return this._number;
+		},
+	});
+	
+	var obj = new Test();
+	equal(obj.number(), 10, 'Test class was extended with new methods.');
+
 });
